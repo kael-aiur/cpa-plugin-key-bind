@@ -74,9 +74,10 @@ func (a *App) registration() Registration {
 	return Registration{
 		SchemaVersion: SchemaVersion,
 		Metadata: Metadata{
-			Name:    PluginName,
-			Version: Version,
-			Author:  "kael",
+			Name:             PluginName,
+			Version:          Version,
+			Author:           "kael",
+			GitHubRepository: "https://github.com/kael-aiur/cpa-plugin-key-bind",
 			ConfigFields: []ConfigField{
 				{
 					Name:        "state_file",
