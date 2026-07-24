@@ -6,7 +6,7 @@
       "name": "Key Bind",
       "description": "Bind each proxy API key to an allowed set of providers/accounts. Keys without a binding fall through to the platform's default scheduling. Includes a web config UI (key dropdown + provider multi-select).",
       "author": "kael-aiur",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "repository": "https://github.com/kael-aiur/cpa-plugin-key-bind",
       "homepage": "https://github.com/kael-aiur/cpa-plugin-key-bind",
       "license": "MIT",
