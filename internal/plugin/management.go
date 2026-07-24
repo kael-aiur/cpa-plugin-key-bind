@@ -25,7 +25,7 @@ func (a *App) managementRegistration() ManagementRegistrationResponse {
 			{Method: http.MethodDelete, Path: mgmtBase + "/binds", Description: "Delete a key→provider binding by id."},
 		},
 		Resources: []ResourceRoute{
-			{Path: web.IndexPath, Menu: "Key Bind", Description: "Web UI for managing key→provider bindings."},
+			{Path: web.IndexPath, Menu: "密钥绑定", Description: "绑定密钥和供应商账号"},
 		},
 	}
 }
