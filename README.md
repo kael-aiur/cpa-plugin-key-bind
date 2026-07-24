@@ -30,7 +30,27 @@ make all        # 先构建前端(内联成单 index.html),再编译本机平台
 
 也可分步:`make web`(前端)→ `make plugin`(后端)。跨平台打包见 `make build-linux-amd64` / `build-linux-arm64`(arm64 需 C 交叉工具链)。
 
-## 加载
+## 通过插件商店安装(推荐,免编译)
+
+key-bind 已发布到 GitHub Release(v0.1.1+),可通过 CPA 的第三方插件源一键安装/更新,无需本地编译。
+
+**1. 配置第三方插件源** —— 在 Management-Center「插件配置 → 第三方插件源」加入该地址,或在 `config.yaml` 写入:
+
+```yaml
+plugins:
+  store-sources:
+    - "https://raw.githubusercontent.com/kael-aiur/cpa-plugin-key-bind/main/registry.json"
+```
+
+**2. 安装/更新** —— 「插件商店」页面会列出「密钥绑定」(Key Bind)。点「安装」(首次)或「更新」(有新版本时)。CPA 会自动按当前平台(linux amd64/arm64)下载预编译的 `.so`、校验 `checksums.txt`、解压到 `plugins/`,并**热重载**——无需重启 CPA 即时生效。
+
+**3. 配置使用** —— 安装后在「插件管理」点「密钥绑定」菜单进入配置页(API Key 下拉 + 供应商多选),详见下文「使用配置页」。
+
+> 商店安装/更新走 hot reload,即时生效。若个别情况下未自动加载,在插件管理把该插件开关 toggle 一次即可。
+
+---
+
+## 手动编译加载(备选)
 
 把编译产物放进 CPA 的 `plugins.dir`(默认 `plugins/`),并在 `config.yaml` 启用:
 
