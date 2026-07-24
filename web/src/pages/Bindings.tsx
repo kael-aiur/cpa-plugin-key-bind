@@ -7,7 +7,6 @@ import {
   type BindingInput,
 } from "../api/binds";
 import { listApiKeys, listProviderOptions } from "../api/cpa";
-import { clearSession } from "../store/session";
 import type { Binding, ProviderOption } from "../types";
 
 type EditTarget = { mode: "new" } | { mode: "edit"; binding: Binding } | null;
@@ -53,17 +52,19 @@ export default function Bindings() {
 
   return (
     <div className="app">
-      <div className="header">
-        <div>
-          <h1>Key Bind · 密钥供应商绑定</h1>
-          <div className="sub">
-            为每个 API Key 指定可用的供应商/账号;未绑定的 Key 按平台原策略放行
+      {!target && (
+        <div className="header">
+          <div>
+            <h1>Key Bind · 密钥供应商绑定</h1>
+            <div className="sub">
+              为每个 API Key 指定可用的供应商/账号;未绑定的 Key 按平台原策略放行
+            </div>
           </div>
+          <button className="btn primary" onClick={() => setTarget({ mode: "new" })}>
+            + 新建绑定
+          </button>
         </div>
-        <button className="btn primary" onClick={() => setTarget({ mode: "new" })}>
-          + 新建绑定
-        </button>
-      </div>
+      )}
 
       {error && <div className="card"><div className="error">{error}</div></div>}
 
@@ -102,11 +103,6 @@ export default function Bindings() {
         />
       )}
 
-      <div className="card" style={{ marginTop: 20 }}>
-        <button className="btn" onClick={clearSession}>
-          登出
-        </button>
-      </div>
     </div>
   );
 }

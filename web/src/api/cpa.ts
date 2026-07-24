@@ -1,46 +1,21 @@
 import { apiClient, CPA_BASE } from "./client";
 import type { ProviderOption } from "../types";
 
-// --- platform api-keys ---
-
-// GET /v0/management/api-keys may return string[] or an array of objects.
+// GET /v0/management/api-keys -> { "api-keys": string[] }
 export async function listApiKeys(): Promise<string[]> {
-  const { data } = await apiClient().get<unknown>(CPA_BASE + "/api-keys");
-  return normalizeApiKeys(data);
+  const { data } = await apiClient().get<Record<string, unknown>>(CPA_BASE + "/api-keys");
+  const keys = data["api-keys"] ?? data.apiKeys;
+  return Array.isArray(keys) ? keys.map((k) => String(k)).filter(Boolean) : [];
 }
-
-function normalizeApiKeys(input: unknown): string[] {
-  const out: string[] = [];
-  const seen = new Set<string>();
-  const push = (v: string) => {
-    const t = v.trim();
-    if (t && !seen.has(t)) {
-      seen.add(t);
-      out.push(t);
-    }
-  };
-  if (Array.isArray(input)) {
-    for (const item of input) {
-      if (typeof item === "string") {
-        push(item);
-      } else if (item && typeof item === "object") {
-        const r = item as Record<string, unknown>;
-        push(String(r["api-key"] ?? r["apiKey"] ?? r["key"] ?? r["Key"] ?? ""));
-      }
-    }
-  }
-  return out;
-}
-
-// --- provider/account options for the multi-select ---
 
 export async function listProviderOptions(): Promise<ProviderOption[]> {
-  const [authFiles, providers] = await Promise.all([listAuthFiles(), listAIProviders()]);
-  // De-dup by value (an auth id and a provider name never collide due to the
-  // "auth:" prefix, but providers may repeat).
+  const [providers, authFiles] = await Promise.all([
+    listAIProviders().catch(() => [] as ProviderOption[]),
+    listAuthFiles().catch(() => [] as ProviderOption[]),
+  ]);
   const seen = new Set<string>();
   const out: ProviderOption[] = [];
-  for (const o of [...authFiles, ...providers]) {
+  for (const o of [...providers, ...authFiles]) {
     if (o && !seen.has(o.value)) {
       seen.add(o.value);
       out.push(o);
@@ -49,28 +24,27 @@ export async function listProviderOptions(): Promise<ProviderOption[]> {
   return out;
 }
 
+// GET /v0/management/auth-files -> { files: [{ name, provider?, type? }] }
 async function listAuthFiles(): Promise<ProviderOption[]> {
-  try {
-    const { data } = await apiClient().get<unknown>(CPA_BASE + "/auth-files");
-    const files = extractArray(data, "auth_files");
-    return files
-      .map((f) => {
-        const r = (f ?? {}) as Record<string, unknown>;
-        const id = String(r["id"] ?? r["name"] ?? r["filename"] ?? "");
-        const provider = String(r["provider"] ?? r["type"] ?? "").toLowerCase();
-        const label = String(r["name"] ?? r["filename"] ?? r["id"] ?? id);
-        const value = id ? `auth:${id}` : "";
-        if (!value) return null;
-        return { value, label, kind: "auth" as const, meta: provider || undefined };
-      })
-      .filter((o) => o !== null) as ProviderOption[];
-  } catch {
-    return [];
-  }
+  const { data } = await apiClient().get<Record<string, unknown>>(CPA_BASE + "/auth-files");
+  const files = Array.isArray(data.files) ? (data.files as unknown[]) : [];
+  const mapped = files.map((f) => {
+    const r = (f ?? {}) as Record<string, unknown>;
+    const name = String(r.name ?? "");
+    const provider = String(r.provider ?? r.type ?? "").toLowerCase();
+    if (!name) return null;
+    return {
+      value: `auth:${name}`,
+      label: name,
+      kind: "auth" as const,
+      meta: provider || undefined,
+    };
+  });
+  return mapped.filter((o) => o !== null) as ProviderOption[];
 }
 
-// Each AI provider's API-key config endpoint. If it returns a non-empty list,
-// expose that provider as one selectable option (covers all its accounts).
+// Each provider config endpoint returns { "<endpoint>": [...] }, e.g.
+// /codex-api-key -> { "codex-api-key": [...] }.
 const AI_PROVIDER_ENDPOINTS: Array<[string, string]> = [
   ["claude", "/claude-api-key"],
   ["codex", "/codex-api-key"],
@@ -83,28 +57,14 @@ const AI_PROVIDER_ENDPOINTS: Array<[string, string]> = [
 async function listAIProviders(): Promise<ProviderOption[]> {
   const settled = await Promise.allSettled(
     AI_PROVIDER_ENDPOINTS.map(async ([provider, suffix]) => {
-      const { data } = await apiClient().get<unknown>(CPA_BASE + suffix);
-      const count = extractArray(data).length;
+      const { data } = await apiClient().get<Record<string, unknown>>(CPA_BASE + suffix);
+      const key = suffix.replace(/^\//, "");
+      const arr = data[key] ?? data[provider];
+      const count = Array.isArray(arr) ? arr.length : 0;
       if (count === 0) return null;
-      return {
-        value: provider,
-        label: provider,
-        kind: "provider" as const,
-        meta: `${count} key(s)`,
-      };
+      return { value: provider, label: provider, kind: "provider" as const, meta: `${count} key(s)` };
     }),
   );
-  return settled
-    .map((r) => (r.status === "fulfilled" ? r.value : null))
-    .filter((o) => o !== null) as ProviderOption[];
-}
-
-function extractArray(data: unknown, key?: string): unknown[] {
-  if (Array.isArray(data)) return data;
-  if (data && typeof data === "object") {
-    const r = data as Record<string, unknown>;
-    if (key && Array.isArray(r[key])) return r[key] as unknown[];
-    if (Array.isArray(r["keys"])) return r["keys"] as unknown[];
-  }
-  return [];
+  const mapped = settled.map((r) => (r.status === "fulfilled" ? r.value : null));
+  return mapped.filter((o) => o !== null) as ProviderOption[];
 }
