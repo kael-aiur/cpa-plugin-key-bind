@@ -1,0 +1,16 @@
+# build artifacts
+/key-bind.so
+/key-bind.dylib
+/key-bind.dll
+/key-bind.h
+/dist/
+
+# web build output
+/web/node_modules/
+/web/dist/
+/web/*.tsbuildinfo
+/web/vite.config.d.ts
+/web/vite.config.js
+
+# runtime state (contains key hashes)
+/key-bind-state.json

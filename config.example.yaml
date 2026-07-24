@@ -1,0 +1,10 @@
+# CLIProxyAPI plugin configuration for key-bind.
+# Merge this under the top-level `plugins:` key in your CLIProxyAPI config.yaml.
+
+plugins:
+  enabled: true
+  dir: "plugins"                              # directory holding the compiled key-bind.so/.dylib
+  configs:
+    key-bind:
+      enabled: true
+      state_file: "key-bind-state.json"       # JSON file storing key→provider bindings (managed via UI)
