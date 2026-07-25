@@ -37,11 +37,13 @@ func (a *App) pickAuth(raw []byte) ([]byte, error) {
 		return ErrorEnvelope("no_allowed_provider", "key-bind: this key has an empty allow list", http.StatusServiceUnavailable), nil
 	}
 
+	// The host has already filtered Candidates for the current model via
+	// availableAuthsForRouteModel (disabled, per-model cooldown, availability,
+	// and priority). Do not filter again using the candidate's global Status:
+	// an auth may have Status=error because another model failed while remaining
+	// eligible for this request. key-bind's sole responsibility is authorization.
 	filtered := make([]SchedulerAuthCandidate, 0, len(req.Candidates))
 	for _, cand := range req.Candidates {
-		if !candidateUsable(cand.Status) {
-			continue
-		}
 		if candidateAllowed(b.Allow, cand) {
 			filtered = append(filtered, cand)
 		}
@@ -99,19 +101,6 @@ func bearerToken(header string) string {
 		return parts[1]
 	}
 	return header
-}
-
-// candidateUsable mirrors the host's notion of an unusable auth status.
-func candidateUsable(status string) bool {
-	status = strings.ToLower(strings.TrimSpace(status))
-	status = strings.NewReplacer("-", "_", " ", "_").Replace(status)
-	switch status {
-	case "disabled", "error", "expired", "revoked", "invalid", "unavailable",
-		"cooldown", "cooling_down", "quota_exhausted", "exhausted", "blocked":
-		return false
-	default:
-		return true
-	}
 }
 
 // candidateAllowed reports whether a candidate matches any allow entry:

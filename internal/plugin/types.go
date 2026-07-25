@@ -22,7 +22,7 @@ const (
 const (
 	PluginID   = "key-bind"
 	PluginName = "key-bind"
-	Version    = "0.1.1"
+	Version    = "0.1.2"
 )
 
 // --- RPC envelope ---
