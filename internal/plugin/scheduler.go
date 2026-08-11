@@ -6,7 +6,7 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"cpa-plugin-key-bind/internal/store"
+	"cpa-plugin-key-bind/internal/bindings"
 )
 
 // roundRobin rotates across the filtered candidate set. SchedulerPickResponse
@@ -27,13 +27,13 @@ func (a *App) pickAuth(raw []byte) ([]byte, error) {
 		return OKEnvelope(SchedulerPickResponse{Handled: false})
 	}
 
-	b := a.store.FindByKeyHash(store.HashKey(apiKey))
-	if b == nil || !b.Enabled {
+	binding, ok := a.activeBindings().FindByKeyHash(bindings.HashKey(apiKey))
+	if !ok || !binding.Enabled {
 		// No active binding for this key -> defer to the host scheduler, i.e. the
 		// platform's original strategy. (Requirement: "skip when no binding".)
 		return OKEnvelope(SchedulerPickResponse{Handled: false})
 	}
-	if len(b.Allow) == 0 {
+	if len(binding.Allow) == 0 {
 		return ErrorEnvelope("no_allowed_provider", "key-bind: this key has an empty allow list", http.StatusServiceUnavailable), nil
 	}
 
@@ -44,7 +44,7 @@ func (a *App) pickAuth(raw []byte) ([]byte, error) {
 	// eligible for this request. key-bind's sole responsibility is authorization.
 	filtered := make([]SchedulerAuthCandidate, 0, len(req.Candidates))
 	for _, cand := range req.Candidates {
-		if candidateAllowed(b.Allow, cand) {
+		if candidateAllowed(binding.Allow, cand) {
 			filtered = append(filtered, cand)
 		}
 	}

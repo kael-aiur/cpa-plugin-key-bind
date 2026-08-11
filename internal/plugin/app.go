@@ -3,22 +3,26 @@ package plugin
 import (
 	"encoding/json"
 	"net/http"
+	"sync"
 
 	"gopkg.in/yaml.v3"
 
+	"cpa-plugin-key-bind/internal/bindings"
 	"cpa-plugin-key-bind/internal/store"
 )
 
-// App holds plugin runtime state. The only stateful component is the binding
-// store; scheduler picks are stateless lookups against it.
+// App holds the immutable host-config snapshot used by the scheduler. The
+// legacy store remains available to the management routes until their separate
+// migration removes JSON persistence.
 type App struct {
+	mu    sync.RWMutex
+	index *bindings.Index
 	store *store.Store
 }
 
-// NewApp constructs an App with an empty store. The store is (re)loaded from the
-// state file on plugin.register / plugin.reconfigure.
+// NewApp constructs an App with an empty host-config index.
 func NewApp() *App {
-	return &App{store: store.NewStore()}
+	return &App{index: bindings.Empty(), store: store.NewStore()}
 }
 
 // Shutdown is a no-op (no background workers to stop).
@@ -45,10 +49,11 @@ func (a *App) HandleMethod(method string, request []byte) ([]byte, error) {
 
 // pluginConfig mirrors the plugins.configs.key-bind YAML block.
 type pluginConfig struct {
-	StateFile string `yaml:"state_file" json:"state_file"`
+	Bindings []bindings.ConfigBinding `yaml:"bindings" json:"bindings"`
 }
 
-// configure parses the config_yaml payload (state_file) and (re)loads the store.
+// configure parses the host-supplied config_yaml and atomically publishes a new
+// immutable bindings index. Failed builds leave the previous snapshot active.
 func (a *App) configure(raw []byte) error {
 	cfg := pluginConfig{}
 	if len(raw) > 0 {
@@ -62,11 +67,23 @@ func (a *App) configure(raw []byte) error {
 			}
 		}
 	}
-	statePath, err := store.ResolveStatePath(cfg.StateFile)
+
+	next, err := bindings.Build(cfg.Bindings)
 	if err != nil {
 		return err
 	}
-	return a.store.Configure(statePath)
+
+	a.mu.Lock()
+	a.index = next
+	a.mu.Unlock()
+	return nil
+}
+
+func (a *App) activeBindings() *bindings.Index {
+	a.mu.RLock()
+	index := a.index
+	a.mu.RUnlock()
+	return index
 }
 
 // registration declares plugin metadata and capabilities to the host.
@@ -80,9 +97,9 @@ func (a *App) registration() Registration {
 			GitHubRepository: "https://github.com/kael-aiur/cpa-plugin-key-bind",
 			ConfigFields: []ConfigField{
 				{
-					Name:        "state_file",
-					Type:        "string",
-					Description: "JSON state file storing key→provider bindings (edited via the plugin UI).",
+					Name:        "bindings",
+					Type:        "array",
+					Description: "Key hashes and their allowed providers/accounts. Managed by the key-bind UI.",
 				},
 			},
 		},
