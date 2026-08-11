@@ -5,6 +5,12 @@ export interface Binding {
   key_preview: string;
   allow: string[];
   enabled: boolean;
+  [key: string]: unknown;
+}
+
+export interface KeyBindPluginConfig {
+  bindings?: Binding[];
+  [key: string]: unknown;
 }
 
 // A selectable provider/account shown in the multi-select.
