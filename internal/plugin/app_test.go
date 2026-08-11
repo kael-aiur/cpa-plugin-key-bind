@@ -100,13 +100,3 @@ func TestRegistrationDeclaresBindingsArrayField(t *testing.T) {
 		t.Fatalf("unexpected field: %#v", field)
 	}
 }
-
-func TestConfigureIgnoresRemovedStateFileField(t *testing.T) {
-	app := NewApp()
-	if err := app.configure(lifecycleRequest(t, "state_file: /definitely/missing/state.json\n")); err != nil {
-		t.Fatalf("removed state_file must not trigger file access: %v", err)
-	}
-	if got := app.activeBindings().List(); len(got) != 0 {
-		t.Fatalf("unexpected bindings: %#v", got)
-	}
-}

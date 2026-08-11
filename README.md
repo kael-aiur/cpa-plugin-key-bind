@@ -61,7 +61,7 @@ plugins:
   configs:
     key-bind:
       enabled: true
-      state_file: "key-bind-state.json"
+      bindings: [] # 由 key-bind 配置页管理，并持久化在宿主 config.yaml 文件中
 ```
 
 > 首次放入新插件可热加载;但**替换一个已在运行的 `.so` 必须重启 CPA**(dlopen 运行时无法安全覆盖)。详见 CLIProxyAPI 文档。
@@ -75,7 +75,7 @@ plugins:
    - **允许的供应商/账号**(多选):
      - *AI 供应商* 组:各 provider 类型(如 `claude`/`codex`/`gemini`),选中=允许该类型全部账号。
      - *认证文件* 组:具体 OAuth 凭证账号,选中(`auth:<id>`)= 精确到该账号。
-3. 保存即可,绑定记录写入 `state_file`,热生效(`plugin.reconfigure`)。
+3. 保存会通过 CLIProxyAPI 原生插件配置 API 写入 `config.yaml`,并由宿主异步 `plugin.reconfigure`,热生效。
 
 ## 约束
 
@@ -97,7 +97,6 @@ cpa-plugin-key-bind/
 ├── internal/
 │   ├── plugin/              # app/scheduler/management/types + web(embed)
 │   │   └── web/dist/index.html   # 嵌入的配置页(构建前为 placeholder)
-│   └── store/               # 绑定记录模型 + JSON 持久化
 ├── web/                     # React + Vite + TS 配置页(构建成单 index.html)
 ├── Makefile / go.mod / config.example.yaml
 ```

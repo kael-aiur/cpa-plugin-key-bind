@@ -7,4 +7,4 @@ plugins:
   configs:
     key-bind:
       enabled: true
-      state_file: "key-bind-state.json"       # JSON file storing key→provider bindings (managed via UI)
+      bindings: []                             # 由 key-bind 配置页管理，并持久化在宿主 config.yaml 文件中
