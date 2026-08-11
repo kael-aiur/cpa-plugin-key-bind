@@ -8,21 +8,17 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"cpa-plugin-key-bind/internal/bindings"
-	"cpa-plugin-key-bind/internal/store"
 )
 
-// App holds the immutable host-config snapshot used by the scheduler. The
-// legacy store remains available to the management routes until their separate
-// migration removes JSON persistence.
+// App holds the immutable host-config snapshot used by the scheduler.
 type App struct {
 	mu    sync.RWMutex
 	index *bindings.Index
-	store *store.Store
 }
 
 // NewApp constructs an App with an empty host-config index.
 func NewApp() *App {
-	return &App{index: bindings.Empty(), store: store.NewStore()}
+	return &App{index: bindings.Empty()}
 }
 
 // Shutdown is a no-op (no background workers to stop).
