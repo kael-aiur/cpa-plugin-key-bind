@@ -46,6 +46,18 @@ export default function Bindings() {
     }
   }, []);
 
+  const recoverAfterMutationError = useCallback(
+    async (e: unknown, fallback: string) => {
+      const message = e instanceof Error && e.message ? e.message : fallback;
+      if (await reload()) {
+        setError(message);
+      } else {
+        setTarget(null);
+      }
+    },
+    [reload],
+  );
+
   useEffect(() => {
     reload();
   }, [reload]);
@@ -90,6 +102,7 @@ export default function Bindings() {
           apiKeys={apiKeys}
           options={options}
           onCancel={() => setTarget(null)}
+          onMutationError={(e) => recoverAfterMutationError(e, "保存失败")}
           onSaved={async () => {
             setTarget(null);
             if (await reload()) {
@@ -113,7 +126,7 @@ export default function Bindings() {
                 setNotice("配置已保存，宿主正在应用。");
               }
             } catch (e) {
-              setError((e as Error).message);
+              await recoverAfterMutationError(e, "删除绑定失败");
             }
           }}
           onToggle={async (b) => {
@@ -124,7 +137,7 @@ export default function Bindings() {
                 setNotice("配置已保存，宿主正在应用。");
               }
             } catch (e) {
-              setError((e as Error).message);
+              await recoverAfterMutationError(e, "切换绑定状态失败");
             }
           }}
         />
@@ -212,9 +225,10 @@ function BindingForm(props: {
   apiKeys: string[];
   options: ProviderOption[];
   onCancel: () => void;
+  onMutationError: (e: unknown) => void | Promise<void>;
   onSaved: () => void | Promise<void>;
 }) {
-  const { target, apiKeys, options, onCancel, onSaved } = props;
+  const { target, apiKeys, options, onCancel, onMutationError, onSaved } = props;
   const editing = target.mode === "edit" ? target.binding : null;
   const [name, setName] = useState(editing?.name ?? "");
   const [key, setKey] = useState("");
@@ -260,7 +274,7 @@ function BindingForm(props: {
       }
       await onSaved();
     } catch (e) {
-      setError((e as Error).message || "保存失败");
+      await onMutationError(e);
     } finally {
       setBusy(false);
     }
