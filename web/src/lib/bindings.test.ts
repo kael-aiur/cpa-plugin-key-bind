@@ -27,6 +27,18 @@ describe("binding crypto helpers", () => {
     );
   });
 
+  it("matches Go TrimSpace for U+0085", async () => {
+    await expect(hashKey(`${String.fromCharCode(0x85)}sk-test${String.fromCharCode(0x85)}`)).resolves.toBe(
+      "sha256:f3abf2a6cc4f00987743db5f544ba345b4899ae31f326d8ee9c4816de153c9e0",
+    );
+  });
+
+  it("does not remove U+FEFF like JavaScript trim", async () => {
+    await expect(hashKey(`${String.fromCharCode(0xfeff)}sk-test${String.fromCharCode(0xfeff)}`)).resolves.toBe(
+      "sha256:070266985a6e0f3103b9bd1e12aa0673848b3a09bb81262c0aa6aa76ddf8ff41",
+    );
+  });
+
   it("matches the Go preview behavior", () => {
     expect(previewKey("1234567890123")).toBe("1234567...90123");
   });

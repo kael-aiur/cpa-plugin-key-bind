@@ -2,6 +2,42 @@ import type { Binding } from "../types";
 
 const ID_PATTERN = /^kb_[a-f0-9]{24}$/;
 const HASH_PATTERN = /^sha256:[a-f0-9]{64}$/;
+const GO_SPACE_CODE_POINTS = new Set([
+  0x0009,
+  0x000a,
+  0x000b,
+  0x000c,
+  0x000d,
+  0x0020,
+  0x0085,
+  0x00a0,
+  0x1680,
+  0x2028,
+  0x2029,
+  0x202f,
+  0x205f,
+  0x3000,
+]);
+
+function isGoSpace(codePoint: number): boolean {
+  return GO_SPACE_CODE_POINTS.has(codePoint) || (codePoint >= 0x2000 && codePoint <= 0x200a);
+}
+
+function trimGoSpace(input: string): string {
+  let start = 0;
+  let end = input.length;
+  while (start < end) {
+    const codePoint = input.codePointAt(start);
+    if (codePoint === undefined || !isGoSpace(codePoint)) break;
+    start += codePoint > 0xffff ? 2 : 1;
+  }
+  while (end > start) {
+    const codePoint = input.codePointAt(end - 1);
+    if (codePoint === undefined || !isGoSpace(codePoint)) break;
+    end -= codePoint > 0xffff ? 2 : 1;
+  }
+  return input.slice(start, end);
+}
 
 export interface BuildBindingInput {
   id?: string;
@@ -14,7 +50,7 @@ export interface BuildBindingInput {
 export type BindingChanges = Partial<Pick<Binding, "name" | "allow" | "enabled">>;
 
 export async function hashKey(key: string): Promise<string> {
-  const bytes = new TextEncoder().encode(key.trim());
+  const bytes = new TextEncoder().encode(trimGoSpace(key));
   const digest = await crypto.subtle.digest("SHA-256", bytes);
   const hex = Array.from(new Uint8Array(digest), (value) =>
     value.toString(16).padStart(2, "0"),
@@ -23,7 +59,7 @@ export async function hashKey(key: string): Promise<string> {
 }
 
 export function previewKey(key: string): string {
-  const normalized = key.trim();
+  const normalized = trimGoSpace(key);
   if (normalized.length <= 12) return normalized;
   return `${normalized.slice(0, 7)}...${normalized.slice(-5)}`;
 }
@@ -46,7 +82,7 @@ export function normalizeAllow(input: string[]): string[] {
 }
 
 export async function buildBinding(input: BuildBindingInput): Promise<Binding> {
-  const key = input.key.trim();
+  const key = trimGoSpace(input.key);
   if (!key) throw new Error("请选择 API Key");
   return {
     id: input.id ?? newBindingID(),
