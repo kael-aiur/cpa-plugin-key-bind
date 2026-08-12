@@ -32,7 +32,7 @@ make all        # 先构建前端(内联成单 index.html),再编译本机平台
 
 ## 通过插件商店安装(推荐,免编译)
 
-key-bind 已发布到 GitHub Release(v0.1.1+),可通过 CPA 的第三方插件源一键安装/更新,无需本地编译。
+key-bind 已发布到 GitHub Release(v0.2.0+),可通过 CPA 的第三方插件源一键安装/更新,无需本地编译。
 
 **1. 配置第三方插件源** —— 在 Management-Center「插件配置 → 第三方插件源」加入该地址,或在 `config.yaml` 写入:
 
@@ -75,7 +75,7 @@ plugins:
    - **允许的供应商/账号**(多选):
      - *AI 供应商* 组:各 provider 类型(如 `claude`/`codex`/`gemini`),选中=允许该类型全部账号。
      - *认证文件* 组:具体 OAuth 凭证账号,选中(`auth:<id>`)= 精确到该账号。
-3. 保存会通过 CLIProxyAPI 原生插件配置 API 写入 `config.yaml`,并由宿主异步 `plugin.reconfigure`,热生效。
+3. 保存后，页面通过 CLIProxyAPI 原生插件配置 API 将 bindings 写入 config.yaml；宿主随后异步调用 plugin.reconfigure，插件原子更新内存索引。
 
 ## 约束
 
@@ -83,11 +83,23 @@ plugins:
 2. **Key 仍须在顶层 `api-keys`**:本插件不做鉴权;Key 必须先通过平台 `config-api-key`,请求才会到达本插件。
 3. **`auth:<id>` 精确匹配依赖 ID 一致**:认证文件选项生成的 `auth:<id>` 需与 `scheduler` 候选的 `ID` 一致。若发现匹配不上,可改用「AI 供应商」类型粒度(覆盖全部账号)。
 
+## 0.2.0 升级说明
+
+这是一次不向后兼容的持久化变更：
+
+- `state_file` 和 `key-bind-state.json` 不再使用；
+- 原 `/v0/management/plugins/key-bind/binds` CRUD API 已移除；
+- 绑定现在保存在 `plugins.configs.key-bind.bindings`；
+- 升级后请进入“密钥绑定”页面手工重新创建绑定；
+- `config.yaml` 必须按 CLIProxyAPI 官方部署方式持久挂载且保持可写。
+
+页面每次保存前会读取最新配置，但宿主尚无 ETag/CAS；多个管理员同时编辑时可能发生最后写入者覆盖。
+
 ## 开发
 
 - 改 Go 代码 → `make plugin`(已加载需重启 CPA)。
 - 改前端 → `make web` 后重新 `make plugin`(embed 进二进制)。
-- 改绑定记录(运行时)→ 配置页直接改,热加载,不重启。
+- 改绑定记录 → 配置页 PATCH plugins.configs.key-bind.bindings，宿主持久化并热应用。
 
 ## 目录结构
 
@@ -95,6 +107,7 @@ plugins:
 cpa-plugin-key-bind/
 ├── cmd/key-bind/            # C-ABI 入口(main.go cshared / main_stub.go)
 ├── internal/
+│   ├── bindings/            # 配置模型、校验和不可变运行时索引
 │   ├── plugin/              # app/scheduler/management/types + web(embed)
 │   │   └── web/dist/index.html   # 嵌入的配置页(构建前为 placeholder)
 ├── web/                     # React + Vite + TS 配置页(构建成单 index.html)

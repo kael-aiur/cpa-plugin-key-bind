@@ -3,8 +3,8 @@
 
 plugins:
   enabled: true
-  dir: "plugins"                              # directory holding the compiled key-bind.so/.dylib
+  dir: "plugins"
   configs:
     key-bind:
       enabled: true
-      bindings: []                             # 由 key-bind 配置页管理，并持久化在宿主 config.yaml 文件中
+      bindings: []  # Managed by the key-bind UI and persisted in this config file.
