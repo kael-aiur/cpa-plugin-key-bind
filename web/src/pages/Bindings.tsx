@@ -4,6 +4,7 @@ import {
   createBinding,
   updateBinding,
   deleteBinding,
+  toggleBinding,
   type BindingInput,
 } from "../api/binds";
 import { listApiKeys, listProviderOptions } from "../api/cpa";
@@ -16,10 +17,13 @@ export default function Bindings() {
   const [apiKeys, setApiKeys] = useState<string[]>([]);
   const [options, setOptions] = useState<ProviderOption[]>([]);
   const [loading, setLoading] = useState(true);
+  const [configReady, setConfigReady] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [target, setTarget] = useState<EditTarget>(null);
 
   const reload = useCallback(async () => {
+    setConfigReady(false);
     setLoading(true);
     setError("");
     try {
@@ -31,8 +35,12 @@ export default function Bindings() {
       setBindings(bs);
       setApiKeys(keys);
       setOptions(opts);
+      setConfigReady(true);
+      return true;
     } catch (e) {
-      setError((e as Error).message || "加载失败");
+      setConfigReady(false);
+      setError((e as Error).message || "加载插件配置失败");
+      return false;
     } finally {
       setLoading(false);
     }
@@ -60,13 +68,21 @@ export default function Bindings() {
               为每个 API Key 指定可用的供应商/账号;未绑定的 Key 按平台原策略放行
             </div>
           </div>
-          <button className="btn primary" onClick={() => setTarget({ mode: "new" })}>
+          <button
+            className="btn primary"
+            onClick={() => {
+              setNotice("");
+              setTarget({ mode: "new" });
+            }}
+            disabled={!configReady}
+          >
             + 新建绑定
           </button>
         </div>
       )}
 
       {error && <div className="card"><div className="error">{error}</div></div>}
+      {notice && <div className="card"><div className="success">{notice}</div></div>}
 
       {target ? (
         <BindingForm
@@ -74,33 +90,48 @@ export default function Bindings() {
           apiKeys={apiKeys}
           options={options}
           onCancel={() => setTarget(null)}
-          onSaved={() => {
+          onSaved={async () => {
             setTarget(null);
-            reload();
+            if (await reload()) {
+              setNotice("配置已保存，宿主正在应用。");
+            }
           }}
         />
-      ) : (
+      ) : configReady ? (
         <BindingList
           bindings={bindings}
-          onEdit={(b) => setTarget({ mode: "edit", binding: b })}
+          onEdit={(b) => {
+            setNotice("");
+            setTarget({ mode: "edit", binding: b });
+          }}
           onDelete={async (b) => {
             if (!window.confirm(`删除绑定「${b.name || b.key_preview}」?`)) return;
+            setNotice("");
             try {
               await deleteBinding(b.id);
-              await reload();
+              if (await reload()) {
+                setNotice("配置已保存，宿主正在应用。");
+              }
             } catch (e) {
               setError((e as Error).message);
             }
           }}
           onToggle={async (b) => {
+            setNotice("");
             try {
-              await updateBinding({ id: b.id, enabled: !b.enabled });
-              await reload();
+              await toggleBinding(b.id);
+              if (await reload()) {
+                setNotice("配置已保存，宿主正在应用。");
+              }
             } catch (e) {
               setError((e as Error).message);
             }
           }}
         />
+      ) : (
+        !loading && (
+          <div className="card empty">当前插件配置无法读取，请先修复 Management API 连接或配置内容。</div>
+        )
       )}
 
     </div>
@@ -181,7 +212,7 @@ function BindingForm(props: {
   apiKeys: string[];
   options: ProviderOption[];
   onCancel: () => void;
-  onSaved: () => void;
+  onSaved: () => void | Promise<void>;
 }) {
   const { target, apiKeys, options, onCancel, onSaved } = props;
   const editing = target.mode === "edit" ? target.binding : null;
@@ -227,7 +258,7 @@ function BindingForm(props: {
         if (enabled !== b.enabled) input.enabled = enabled;
         await updateBinding(input);
       }
-      onSaved();
+      await onSaved();
     } catch (e) {
       setError((e as Error).message || "保存失败");
     } finally {
