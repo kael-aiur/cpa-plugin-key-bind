@@ -2,6 +2,7 @@
 // is CPA's full management credential; refreshing/closing the tab resets to
 // login. The same-origin panel path (readPanelAuth) covers the iframe case.
 
+import { PLUGIN_BASE } from "../api/client";
 import { readPanelAuth } from "./panelAuth";
 
 export interface Session {
@@ -66,11 +67,11 @@ export async function bootstrapFromPanel(): Promise<boolean> {
   }
 }
 
-// Confirm the key works by hitting the plugin's binds route.
+// Confirm the key works by hitting the host-owned plugin config endpoint.
 export async function verifySession(fetchImpl: typeof fetch): Promise<Session> {
   const s = current;
   if (!s) throw new Error("no session");
-  const res = await fetchImpl(s.baseUrl + "/v0/management/plugins/key-bind/binds", {
+  const res = await fetchImpl(s.baseUrl + PLUGIN_BASE + "/config", {
     headers: { Authorization: "Bearer " + s.secretKey },
   });
   if (!res.ok) {

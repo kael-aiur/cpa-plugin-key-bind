@@ -40,34 +40,32 @@ export async function createBinding(input: {
   allow: string[];
   enabled: boolean;
 }): Promise<Binding> {
-  let created: Binding | undefined;
-  await mutateBindings(async (latest) => {
+  let createdId: string | undefined;
+  const persisted = await mutateBindings(async (latest) => {
     const next = await buildBinding(input);
     if (latest.some((binding) => binding.key_hash === next.key_hash)) {
       throw new Error("该 API Key 已存在绑定");
     }
-    created = next;
+    createdId = next.id;
     return [...latest, next];
   });
-  if (!created) throw new Error("创建绑定失败");
+  if (!createdId) throw new Error("创建绑定失败");
+  const created = persisted.find((binding) => binding.id === createdId);
+  if (!created) throw new Error(`绑定不存在：${createdId}`);
   return created;
 }
 
 export async function updateBinding(input: BindingInput): Promise<Binding> {
   if (!input.id) throw new Error("id is required");
   const id = input.id;
-  let updatedBinding: Binding | undefined;
-  await mutateBindings((latest) => {
-    const updated = updateBindingRecord(latest, id, {
+  const persisted = await mutateBindings((latest) => {
+    return updateBindingRecord(latest, id, {
       ...(input.name === undefined ? {} : { name: input.name }),
       ...(input.allow === undefined ? {} : { allow: input.allow }),
       ...(input.enabled === undefined ? {} : { enabled: input.enabled }),
     });
-    const next = updated.find((binding) => binding.id === id);
-    if (!next) throw new Error(`绑定不存在：${id}`);
-    updatedBinding = next;
-    return updated;
   });
+  const updatedBinding = persisted.find((binding) => binding.id === id);
   if (!updatedBinding) throw new Error(`绑定不存在：${id}`);
   return updatedBinding;
 }
