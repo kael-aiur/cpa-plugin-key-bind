@@ -114,6 +114,7 @@ label.field > .lbl { display: block; margin-bottom: 5px; color: var(--muted); fo
 
 .muted { color: var(--muted); }
 .error { color: var(--danger); margin: 8px 0; }
+.success { color: var(--ok); margin: 8px 0; }
 .ok { color: var(--ok); }
 
 table { width: 100%; border-collapse: collapse; }

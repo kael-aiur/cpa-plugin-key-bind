@@ -1,10 +1,12 @@
-import { apiClient, PLUGIN_BASE } from "./client";
 import type { Binding } from "../types";
-
-export async function listBindings(): Promise<Binding[]> {
-  const { data } = await apiClient().get<{ bindings: Binding[] }>(PLUGIN_BASE + "/binds");
-  return data.bindings ?? [];
-}
+import {
+  buildBinding,
+  deleteBindingRecord,
+  toggleBindingRecord,
+  updateBindingRecord,
+  validateBindings,
+} from "../lib/bindings";
+import { getPluginConfig, patchBindings } from "./pluginConfig";
 
 export interface BindingInput {
   id?: string;
@@ -14,21 +16,64 @@ export interface BindingInput {
   enabled?: boolean;
 }
 
+async function latestBindings(): Promise<Binding[]> {
+  const config = await getPluginConfig();
+  return validateBindings(config.bindings ?? []);
+}
+
+async function mutateBindings(
+  mutation: (latest: Binding[]) => Binding[] | Promise<Binding[]>,
+): Promise<Binding[]> {
+  const latest = await latestBindings();
+  const updated = validateBindings(await mutation(latest));
+  await patchBindings(updated);
+  return latestBindings();
+}
+
+export async function listBindings(): Promise<Binding[]> {
+  return latestBindings();
+}
+
 export async function createBinding(input: {
   name: string;
   key: string;
   allow: string[];
   enabled: boolean;
 }): Promise<Binding> {
-  const { data } = await apiClient().post<Binding>(PLUGIN_BASE + "/binds", input);
-  return data;
+  let createdId: string | undefined;
+  const persisted = await mutateBindings(async (latest) => {
+    const next = await buildBinding(input);
+    if (latest.some((binding) => binding.key_hash === next.key_hash)) {
+      throw new Error("该 API Key 已存在绑定");
+    }
+    createdId = next.id;
+    return [...latest, next];
+  });
+  if (!createdId) throw new Error("创建绑定失败");
+  const created = persisted.find((binding) => binding.id === createdId);
+  if (!created) throw new Error(`绑定不存在：${createdId}`);
+  return created;
 }
 
 export async function updateBinding(input: BindingInput): Promise<Binding> {
-  const { data } = await apiClient().put<Binding>(PLUGIN_BASE + "/binds", input);
-  return data;
+  if (!input.id) throw new Error("id is required");
+  const id = input.id;
+  const persisted = await mutateBindings((latest) => {
+    return updateBindingRecord(latest, id, {
+      ...(input.name === undefined ? {} : { name: input.name }),
+      ...(input.allow === undefined ? {} : { allow: input.allow }),
+      ...(input.enabled === undefined ? {} : { enabled: input.enabled }),
+    });
+  });
+  const updatedBinding = persisted.find((binding) => binding.id === id);
+  if (!updatedBinding) throw new Error(`绑定不存在：${id}`);
+  return updatedBinding;
 }
 
 export async function deleteBinding(id: string): Promise<void> {
-  await apiClient().delete(PLUGIN_BASE + "/binds", { params: { id } });
+  await mutateBindings((latest) => deleteBindingRecord(latest, id));
+}
+
+export async function toggleBinding(id: string): Promise<void> {
+  await mutateBindings((latest) => toggleBindingRecord(latest, id));
 }

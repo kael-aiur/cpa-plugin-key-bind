@@ -3,8 +3,8 @@
 
 plugins:
   enabled: true
-  dir: "plugins"                              # directory holding the compiled key-bind.so/.dylib
+  dir: "plugins"
   configs:
     key-bind:
       enabled: true
-      state_file: "key-bind-state.json"       # JSON file storing key→provider bindings (managed via UI)
+      bindings: []  # Managed by the key-bind UI and persisted in this config file.

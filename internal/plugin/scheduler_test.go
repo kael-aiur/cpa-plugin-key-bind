@@ -3,17 +3,35 @@ package plugin
 import (
 	"encoding/json"
 	"net/http"
-	"path/filepath"
 	"testing"
+
+	"cpa-plugin-key-bind/internal/bindings"
 )
 
 func newTestApp(t *testing.T) *App {
 	t.Helper()
-	a := NewApp()
-	if err := a.store.Configure(filepath.Join(t.TempDir(), "state.json")); err != nil {
-		t.Fatalf("configure store: %v", err)
+	return NewApp()
+}
+
+func configureTestBinding(t *testing.T, app *App, id, name, key string, allow []string, enabled bool) {
+	t.Helper()
+	enabledValue := enabled
+	next, err := bindings.Build([]bindings.ConfigBinding{
+		{
+			ID:         id,
+			Name:       name,
+			KeyHash:    bindings.HashKey(key),
+			KeyPreview: bindings.PreviewKey(key),
+			Allow:      allow,
+			Enabled:    &enabledValue,
+		},
+	})
+	if err != nil {
+		t.Fatalf("build test bindings: %v", err)
 	}
-	return a
+	app.mu.Lock()
+	app.index = next
+	app.mu.Unlock()
 }
 
 func callPick(t *testing.T, a *App, req SchedulerPickRequest) Envelope {
@@ -37,9 +55,7 @@ func TestPickAuthTrustsHostFilteredCandidateRegardlessOfGlobalStatus(t *testing.
 	a := newTestApp(t)
 	const key = "sk-test-status"
 	const authID = "codex-user@example.com-team.json"
-	if _, err := a.store.Create("team", key, []string{"auth:" + authID}, true); err != nil {
-		t.Fatalf("create binding: %v", err)
-	}
+	configureTestBinding(t, a, "kb_3123456789abcdef01234567", "team", key, []string{"auth:" + authID}, true)
 
 	env := callPick(t, a, SchedulerPickRequest{
 		Model: "gpt-5.6-terra",
@@ -92,9 +108,7 @@ func TestPickAuthWithoutBindingDefersToHost(t *testing.T) {
 func TestPickAuthRejectsWhenNoAllowedCandidateRemains(t *testing.T) {
 	a := newTestApp(t)
 	const key = "sk-test-no-match"
-	if _, err := a.store.Create("team", key, []string{"auth:allowed.json"}, true); err != nil {
-		t.Fatalf("create binding: %v", err)
-	}
+	configureTestBinding(t, a, "kb_4123456789abcdef01234567", "team", key, []string{"auth:allowed.json"}, true)
 
 	env := callPick(t, a, SchedulerPickRequest{
 		Options: SchedulerPickOptions{

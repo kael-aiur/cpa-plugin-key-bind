@@ -22,7 +22,7 @@ const (
 const (
 	PluginID   = "key-bind"
 	PluginName = "key-bind"
-	Version    = "0.1.2"
+	Version    = "0.2.0"
 )
 
 // --- RPC envelope ---
@@ -70,7 +70,7 @@ type ConfigField struct {
 
 // Capabilities declares only the host hooks this plugin implements.
 // key-bind uses scheduler.pick (filter candidates by key) + management API
-// (CRUD bindings + serve the config UI).
+// (serve the config UI). Binding CRUD is handled by the host plugin-config API.
 type Capabilities struct {
 	Scheduler     bool `json:"scheduler,omitempty"`
 	ManagementAPI bool `json:"management_api"`
